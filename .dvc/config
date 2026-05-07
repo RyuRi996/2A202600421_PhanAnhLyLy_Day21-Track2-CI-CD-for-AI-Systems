@@ -1,0 +1,5 @@
+[core]
+    remote = storage
+['remote "storage"']
+    url = gs://day-21-2a202600421
+    credentialpath = ../gcp-key.json

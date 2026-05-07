@@ -1,84 +1,51 @@
+import os
+import joblib
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from google.cloud import storage
-import joblib
-import os
 
-app = FastAPI()
+app = FastAPI(title="CI/CD AI Inference API")
 
-GCS_BUCKET = os.environ["GCS_BUCKET"]
-GCS_MODEL_KEY = "models/latest/model.pkl"
-MODEL_PATH = os.path.expanduser("~/models/model.pkl")
-
+# Lấy tên bucket từ biến môi trường (mặc định là tên bucket của bạn nếu không tìm thấy biến)
+GCS_BUCKET = os.environ.get("GCS_BUCKET", "day-21-2a202600421")
+GCS_MODEL_KEY = "models/model.pkl"  # Đường dẫn file trên GCS
+MODEL_PATH = "model.pkl"           # Đường dẫn lưu file tạm trên máy chủ
 
 def download_model():
-    """
-    Tai file model.pkl tu GCS ve may khi server khoi dong.
+    """Tải file model.pkl từ GCS về máy khi server khởi động."""
+    print(f"Downloading model from gs://{GCS_BUCKET}/{GCS_MODEL_KEY}...")
+    try:
+        # Sử dụng file key để xác thực (đảm bảo file gcp-key.json đã có trên máy chủ)
+        client = storage.Client.from_service_account_json("gcp-key.json")
+        bucket = client.bucket(GCS_BUCKET)
+        blob = bucket.blob(GCS_MODEL_KEY)
+        
+        os.makedirs(os.path.dirname(MODEL_PATH) if os.path.dirname(MODEL_PATH) else ".", exist_ok=True)
+        blob.download_to_filename(MODEL_PATH)
+        print("Model downloaded successfully!")
+    except Exception as e:
+        print(f"Error downloading model: {e}")
+        raise e
 
-    Ham nay duoc goi mot lan khi module duoc import. Su dung
-    GOOGLE_APPLICATION_CREDENTIALS de xac thuc (duoc dat trong systemd service).
-    """
-    # TODO 1: Tao storage.Client()
-    # client = storage.Client()
-
-    # TODO 2: Lay bucket va blob tuong ung
-    # bucket = client.bucket(GCS_BUCKET)
-    # blob   = bucket.blob(GCS_MODEL_KEY)
-
-    # TODO 3: Tai file model xuong may
-    # blob.download_to_filename(MODEL_PATH)
-
-    # TODO 4: In thong bao thanh cong
-    # print("Model da duoc tai xuong tu GCS.")
-
-    pass  # xoa dong nay sau khi hoan thanh tat ca TODO ben tren
-
-
+# Tải mô hình khi module được load
 download_model()
 model = joblib.load(MODEL_PATH)
 
-
-class PredictRequest(BaseModel):
-    features: list[float]
-
+class PredictionRequest(BaseModel):
+    features: list
 
 @app.get("/health")
-def health():
-    """
-    Endpoint kiem tra suc khoe server.
-    GitHub Actions goi endpoint nay sau khi deploy de xac nhan server dang chay.
-
-    Tra ve: {"status": "ok"}
-    """
-    # TODO 5: Tra ve dict {"status": "ok"}
-    pass  # xoa dong nay sau khi hoan thanh
-
+def health_check():
+    return {"status": "healthy"}
 
 @app.post("/predict")
-def predict(req: PredictRequest):
-    """
-    Endpoint suy luan chinh.
-
-    Dau vao : JSON {"features": [f1, f2, ..., f12]}
-    Dau ra  : JSON {"prediction": <0|1|2>, "label": <"thap"|"trung_binh"|"cao">}
-
-    Thu tu 12 dac trung (khop voi thu tu trong FEATURE_NAMES cua test):
-        fixed_acidity, volatile_acidity, citric_acid, residual_sugar,
-        chlorides, free_sulfur_dioxide, total_sulfur_dioxide, density,
-        pH, sulphates, alcohol, wine_type
-    """
-    # TODO 6: Kiem tra so luong dac trung.
-    # Neu len(req.features) != 12, raise HTTPException(status_code=400, ...)
-
-    # TODO 7: Goi model.predict([req.features]) de lay ket qua du doan.
-    # pred = model.predict(...)
-
-    # TODO 8: Tra ve dict chua "prediction" (int) va "label" (string).
-    # Nhan tuong ung: 0 -> "thap", 1 -> "trung_binh", 2 -> "cao"
-    # return {"prediction": ..., "label": ...}
-
-    pass  # xoa dong nay sau khi hoan thanh tat ca TODO ben tren
-
+def predict(request: PredictionRequest):
+    try:
+        # Dự đoán nhãn
+        prediction = model.predict([request.features])
+        return {"prediction": int(prediction[0])}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
