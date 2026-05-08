@@ -1,0 +1,15 @@
+[Unit]
+Description=MLOps Model Inference Server
+After=network.target
+
+[Service]
+User=sessh
+WorkingDirectory=/home/sessh
+Environment="GCS_BUCKET=day-21-2a202600421"
+Environment="GOOGLE_APPLICATION_CREDENTIALS=/home/sessh/sa-key.json"
+ExecStart=/usr/bin/python3 /home/sessh/src/serve.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
