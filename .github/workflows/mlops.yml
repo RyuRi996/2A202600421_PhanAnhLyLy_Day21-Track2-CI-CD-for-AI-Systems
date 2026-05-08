@@ -169,8 +169,6 @@ jobs:
             #   sudo systemctl restart mlops-serve
             #   sleep 5
             #   curl -sf http://localhost:8000/health && echo "Health check passed." || exit 1
-            # Khoi dong lai uvicorn
-            pkill -f uvicorn || true
-            nohup python3 -m uvicorn src.serve:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+            sudo systemctl restart mlops-serve
             sleep 5
             curl -sf http://localhost:8000/health && echo "Health check passed." || exit 1
